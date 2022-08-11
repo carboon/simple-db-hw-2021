@@ -23,12 +23,26 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class Catalog {
 
+    private final ConcurrentHashMap<Integer,Table> catalogMap;
+
+    public class Table {
+        String name;
+        String pkeyField;
+        DbFile dbfile;
+
+
+
+    }
+
+
     /**
      * Constructor.
      * Creates a new, empty catalog.
      */
     public Catalog() {
         // some code goes here
+        catalogMap = new ConcurrentHashMap<>();
+
     }
 
     /**
