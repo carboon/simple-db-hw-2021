@@ -9,7 +9,12 @@ import simpledb.transaction.TransactionId;
 
 import java.io.*;
 
+import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * BufferPool manages the reading and writing of pages into memory from
@@ -33,6 +38,22 @@ public class BufferPool {
     constructor instead. */
     public static final int DEFAULT_PAGES = 50;
 
+    private int numPages;
+    private ConcurrentHashMap <PageId, Page> pageMap;
+
+    private ReadWriteLock rwlock;
+//    private HashMap<Integer, Permissions> permMap;
+    private LinkedBlockingDeque<Node> deque;
+
+    class Node {
+        int pageId,perm;
+        public Node (int pageId ,int perm){
+            this.pageId= pageId;
+            this.perm = perm;
+        }
+    }
+
+
     /**
      * Creates a BufferPool that caches up to numPages pages.
      *
@@ -40,6 +61,10 @@ public class BufferPool {
      */
     public BufferPool(int numPages) {
         // some code goes here
+        this.numPages = numPages;
+        pageMap = new ConcurrentHashMap<>();
+        rwlock = new ReentrantReadWriteLock();
+        deque = new LinkedBlockingDeque<>();
     }
     
     public static int getPageSize() {
@@ -74,7 +99,18 @@ public class BufferPool {
     public  Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
         // some code goes here
-        return null;
+        rwlock.readLock().lock();
+        Page page = this.pageMap.get(pid);
+        if (page == null) {
+            if(this.numPages >= DEFAULT_PAGES) {
+                evictPage();
+            }
+            DbFile file = Database.getCatalog().getDatabaseFile(pid.getTableId());
+            page = file.readPage(pid);
+            this.pageMap.put(pid, page);
+        }
+        rwlock.readLock().unlock();
+        return page;
     }
 
     /**
