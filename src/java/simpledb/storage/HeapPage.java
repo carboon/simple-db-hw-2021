@@ -73,8 +73,7 @@ public class HeapPage implements Page {
     */
     private int getNumTuples() {        
         // some code goes here
-        return 0;
-
+        return (BufferPool.getPageSize() * 8) / (this.td.getSize() * 8 + 1);
     }
 
     /**
@@ -84,8 +83,7 @@ public class HeapPage implements Page {
     private int getHeaderSize() {        
         
         // some code goes here
-        return 0;
-                 
+        return numSlots %8 >0?(numSlots / 8 + 1):(numSlots / 8);
     }
     
     /** Return a view of this page before it was modified
@@ -118,7 +116,8 @@ public class HeapPage implements Page {
      */
     public HeapPageId getId() {
     // some code goes here
-    throw new UnsupportedOperationException("implement this");
+//    throw new UnsupportedOperationException("implement this");
+        return pid;
     }
 
     /**
@@ -286,9 +285,31 @@ public class HeapPage implements Page {
     /**
      * Returns the number of empty slots on this page.
      */
+    //TODO 这里总觉得不太妥当。感觉是有些问题。
     public int getNumEmptySlots() {
         // some code goes here
-        return 0;
+        int res = 0;
+        for (int j = 0; j < getHeaderSize() -1 ;j++) {
+            int tmp = header[j];
+            for (int i = 0; i < 8; i++) {
+                if ((tmp & 1) == 0) res++;
+                tmp = ( tmp >>> 1);
+            }
+        }
+        int tmp = header[getHeaderSize() -1];
+        if (getHeaderSize() * 8 > numSlots) {
+            for (int i=0; i< 8 -getHeaderSize() * 8 + numSlots; i++) {
+                if ((tmp & 1) == 0) res++;
+                tmp = ( tmp << 1);
+            }
+        } else {
+            for (int i = 0; i < 8; i++) {
+                if ((tmp & 1) == 0) res++;
+                tmp = (tmp << 1);
+            }
+        }
+
+        return res;
     }
 
     /**
@@ -296,7 +317,9 @@ public class HeapPage implements Page {
      */
     public boolean isSlotUsed(int i) {
         // some code goes here
-        return false;
+        int m = 1 << (i%8);
+        return (header[i/8] & m) > 0;
+
     }
 
     /**
@@ -313,7 +336,38 @@ public class HeapPage implements Page {
      */
     public Iterator<Tuple> iterator() {
         // some code goes here
-        return null;
+        return new Itr();
+    }
+    private class Itr implements Iterator<Tuple> {
+        //已经被便利的slot编号，初始化为-1。
+        int slotId = -1;
+        int cursor = 0;
+        int size;
+
+        Itr() {
+            int count = 0;
+            for (int i = 0; i < header.length ; i++) {
+                if (header[i] == 0) continue;
+                for (int j = 0; j < 8; j++) {
+                    int m = 1<< j;
+                    if ((header[i] & m) > 0) count++;
+                }
+            }
+            size = count;
+        }
+
+
+        @Override
+        public boolean hasNext() {
+            return cursor != size;
+        }
+
+        @Override
+        public Tuple next() {
+            while (!isSlotUsed(++slotId)){}
+            cursor++;
+            return tuples[slotId];
+        }
     }
 
 }
