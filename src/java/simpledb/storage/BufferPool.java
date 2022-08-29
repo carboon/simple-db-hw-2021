@@ -40,18 +40,7 @@ public class BufferPool {
 
     private int numPages;
     private ConcurrentHashMap <PageId, Page> pageMap;
-
     private ReadWriteLock rwlock;
-//    private HashMap<Integer, Permissions> permMap;
-    private LinkedBlockingDeque<Node> deque;
-
-    class Node {
-        int pageId,perm;
-        public Node (int pageId ,int perm){
-            this.pageId= pageId;
-            this.perm = perm;
-        }
-    }
 
 
     /**
@@ -64,7 +53,6 @@ public class BufferPool {
         this.numPages = numPages;
         pageMap = new ConcurrentHashMap<>();
         rwlock = new ReentrantReadWriteLock();
-        deque = new LinkedBlockingDeque<>();
     }
     
     public static int getPageSize() {
