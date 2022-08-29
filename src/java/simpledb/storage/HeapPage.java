@@ -83,7 +83,8 @@ public class HeapPage implements Page {
     private int getHeaderSize() {        
         
         // some code goes here
-        return numSlots %8 >0?(numSlots / 8 + 1):(numSlots / 8);
+//        return numSlots %8 >0?(numSlots / 8 + 1):(numSlots / 8);
+        return (int)Math.ceil(numSlots/8);
     }
     
     /** Return a view of this page before it was modified
