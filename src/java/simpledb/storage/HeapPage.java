@@ -84,7 +84,7 @@ public class HeapPage implements Page {
         
         // some code goes here
 //        return numSlots %8 >0?(numSlots / 8 + 1):(numSlots / 8);
-        return (int)Math.ceil(numSlots/8);
+        return (int)Math.ceil(numSlots/8.0);
     }
     
     /** Return a view of this page before it was modified
