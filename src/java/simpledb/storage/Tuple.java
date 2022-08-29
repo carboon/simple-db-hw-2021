@@ -1,5 +1,7 @@
 package simpledb.storage;
 
+import sun.tools.tree.PreIncExpression;
+
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -13,8 +15,9 @@ public class Tuple implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    TupleDesc tupleDesc;
-    Field [] fields;
+    private TupleDesc tupleDesc;
+    private RecordId recordId;
+    private Field [] fields;
 
 
     /**
@@ -44,7 +47,7 @@ public class Tuple implements Serializable {
      */
     public RecordId getRecordId() {
         // some code goes here
-        return null;
+        return recordId;
     }
 
     /**
@@ -55,6 +58,7 @@ public class Tuple implements Serializable {
      */
     public void setRecordId(RecordId rid) {
         // some code goes here
+        this.recordId = rid;
     }
 
     /**
@@ -94,7 +98,7 @@ public class Tuple implements Serializable {
 //        throw new UnsupportedOperationException("Implement this");
         StringBuilder res = new StringBuilder();
         for (Field i: fields){
-            res.append(i);
+            res.append(i).append(" ");
         }
         return res.toString();
     }
@@ -106,7 +110,7 @@ public class Tuple implements Serializable {
     public Iterator<Field> fields()
     {
         // some code goes here
-        return null;
+        return Arrays.stream(fields).iterator();
     }
 
     /**
@@ -115,5 +119,6 @@ public class Tuple implements Serializable {
     public void resetTupleDesc(TupleDesc td)
     {
         // some code goes here
+        this.tupleDesc = td;
     }
 }
