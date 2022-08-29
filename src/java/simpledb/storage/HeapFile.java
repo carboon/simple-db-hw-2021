@@ -90,11 +90,15 @@ public class HeapFile implements DbFile {
         int size = BufferPool.getPageSize();
         byte[] input = new byte[size];
         try {
-            rf.read(input, heapPageId.getPageNumber() * size, size);
+//            这种写法存在问题，不知道为什么 input 也会相应的偏移
+//            rf.read(input, heapPageId.getPageNumber() * size, size);
+            rf.seek(heapPageId.getPageNumber() * size);
+            rf.read(input);
         } catch (IOException e) {
             throw new IllegalArgumentException();
         }
         try {
+            rf.close();//此处不关闭文件似乎也不影响测试
             hp = new HeapPage(heapPageId, input);
         } catch (IOException e) {
             throw new IllegalArgumentException();
@@ -166,9 +170,11 @@ public class HeapFile implements DbFile {
             if (pageMaxNo > curPage.getId().getPageNumber()) {
                 HeapPageId nextHeapPageId = new HeapPageId(f.getId(),
                         curPage.getId().getPageNumber() + 1);
-                HeapPage nextCurPage = (HeapPage) Database.getBufferPool()
+                // 跳到下一页 TODO 注意:如果这里不跳，不影响对应的case测试，但是会影响 SeqScan 的测试，且不太好调试
+                curPage = (HeapPage) Database.getBufferPool()
                         .getPage(tid, nextHeapPageId, Permissions.READ_ONLY);
-                it = nextCurPage.iterator();
+
+                it = curPage.iterator();
                 return it.hasNext();
             }
 
