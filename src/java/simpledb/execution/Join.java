@@ -14,6 +14,13 @@ public class Join extends Operator {
 
     private static final long serialVersionUID = 1L;
 
+    private JoinPredicate p;
+    OpIterator child1;
+    OpIterator child2;
+    TupleDesc td;
+    Tuple left;
+
+
     /**
      * Constructor. Accepts two children to join and the predicate to join them
      * on
@@ -27,11 +34,14 @@ public class Join extends Operator {
      */
     public Join(JoinPredicate p, OpIterator child1, OpIterator child2) {
         // some code goes here
+        this.p = p;
+        this.child1 = child1;
+        this.child2 = child2;
     }
 
     public JoinPredicate getJoinPredicate() {
         // some code goes here
-        return null;
+        return p;
     }
 
     /**
@@ -41,7 +51,7 @@ public class Join extends Operator {
      * */
     public String getJoinField1Name() {
         // some code goes here
-        return null;
+        return child1.getTupleDesc().getFieldName(p.getField1());
     }
 
     /**
@@ -51,7 +61,7 @@ public class Join extends Operator {
      * */
     public String getJoinField2Name() {
         // some code goes here
-        return null;
+        return child2.getTupleDesc().getFieldName(p.getField2());
     }
 
     /**
@@ -60,20 +70,31 @@ public class Join extends Operator {
      */
     public TupleDesc getTupleDesc() {
         // some code goes here
-        return null;
+        return TupleDesc.merge(child1.getTupleDesc(), child2.getTupleDesc());
     }
 
     public void open() throws DbException, NoSuchElementException,
             TransactionAbortedException {
         // some code goes here
+        super.open();
+        child1.open();
+        child2.open();
+        td = getTupleDesc();
+        left = null;
     }
 
     public void close() {
         // some code goes here
+        super.close();
+        child1.close();
+        child2.close();
+        td = null;
     }
 
     public void rewind() throws DbException, TransactionAbortedException {
         // some code goes here
+        close();
+        open();
     }
 
     /**
@@ -82,7 +103,7 @@ public class Join extends Operator {
      * satisfies the join predicate. There are many possible implementations;
      * the simplest is a nested loops join.
      * <p>
-     * Note that the tuples returned from this particular implementation of Join
+     * Note tht the tuples returned from this particular implementation of Join
      * are simply the concatenation of joining tuples from the left and right
      * relation. Therefore, if an equality predicate is used there will be two
      * copies of the join attribute in the results. (Removing such duplicate
@@ -96,18 +117,47 @@ public class Join extends Operator {
      */
     protected Tuple fetchNext() throws TransactionAbortedException, DbException {
         // some code goes here
-        return null;
+        if(left == null) {
+            if (!child1.hasNext())return null;
+            left = child1.next();
+        }
+
+        if (!child2.hasNext()) {
+            if (!child1.hasNext())return null;
+            left = child1.next();
+            child2.rewind();
+        }
+        Tuple right = child2.next();
+        if(p.filter(left, right)) {
+            Tuple res =  new Tuple(td);
+            int i = 0;
+            for(; i < left.getTupleDesc().numFields();i++){
+                res.setField(i, left.getField(i));
+            }
+            int j = 0;
+            for(; j < right.getTupleDesc().numFields();j++){
+                res.setField(i+j, right.getField(j));
+            }
+            return res;
+        } else {
+            return fetchNext();
+        }
     }
 
     @Override
     public OpIterator[] getChildren() {
         // some code goes here
-        return null;
+        OpIterator[] res = new OpIterator[2];
+        res[0] = child1;
+        res[2] = child2;
+        return  res;
     }
 
     @Override
     public void setChildren(OpIterator[] children) {
         // some code goes here
+        child1 = children[0];
+        child2 = children[1];
     }
 
 }
