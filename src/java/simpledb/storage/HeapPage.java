@@ -340,12 +340,12 @@ public class HeapPage implements Page {
         if (getHeaderSize() * 8 > numSlots) {
             for (int i=0; i< 8 -getHeaderSize() * 8 + numSlots; i++) {
                 if ((tmp & 1) == 0) res++;
-                tmp = ( tmp << 1);
+                tmp = ( tmp >> 1);
             }
         } else {
             for (int i = 0; i < 8; i++) {
                 if ((tmp & 1) == 0) res++;
-                tmp = (tmp << 1);
+                tmp = (tmp >> 1);//这里之前是左移，导致在跳转到这里时，在处理还剩8，7，6元素时报错
             }
         }
 
