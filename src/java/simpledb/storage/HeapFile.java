@@ -4,6 +4,7 @@ import simpledb.common.Database;
 import simpledb.common.DbException;
 import simpledb.common.Debug;
 import simpledb.common.Permissions;
+import simpledb.index.BTreeRootPtrPage;
 import simpledb.transaction.TransactionAbortedException;
 import simpledb.transaction.TransactionId;
 
@@ -110,6 +111,18 @@ public class HeapFile implements DbFile {
     public void writePage(Page page) throws IOException {
         // some code goes here
         // not necessary for lab1
+        HeapPageId heapPageId = (HeapPageId) page.getId();
+        byte[] data = page.getPageData();
+        RandomAccessFile rf = new RandomAccessFile(file, "rw");
+        if(heapPageId.getPageNumber() == 0) {
+            rf.write(data);
+            rf.close();
+        }
+        else {
+            rf.seek((long) heapPageId.getPageNumber() * BufferPool.getPageSize());
+            rf.write(data);
+            rf.close();
+        }
     }
 
     /**
@@ -124,7 +137,33 @@ public class HeapFile implements DbFile {
     public List<Page> insertTuple(TransactionId tid, Tuple t)
             throws DbException, IOException, TransactionAbortedException {
         // some code goes here
-        return null;
+        List<Page> list = new ArrayList<>();
+        boolean found = false;
+        for(int pageNo = 0; pageNo < numPages(); pageNo++) {
+            HeapPageId heapPageId = new HeapPageId(getId(), pageNo);
+            HeapPage curPage = (HeapPage) Database.getBufferPool()
+                    .getPage(tid, heapPageId, Permissions.READ_WRITE);
+            if (curPage.getNumEmptySlots() > 0) {
+
+                curPage.insertTuple(t);
+                curPage.markDirty(true, tid);
+                list.add(curPage);
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            HeapPageId newHeapPageId = new HeapPageId(getId(), numPages());
+            this.writePage(new HeapPage (newHeapPageId, new byte[4096]));
+            HeapPage newPage = (HeapPage) Database.getBufferPool()
+                    .getPage(tid, newHeapPageId, Permissions.READ_WRITE);
+            newPage.insertTuple(t);
+            newPage.markDirty(true, tid);
+            list.add(newPage);
+        }
+
+
+        return list;
         // not necessary for lab1
     }
 
@@ -132,7 +171,16 @@ public class HeapFile implements DbFile {
     public ArrayList<Page> deleteTuple(TransactionId tid, Tuple t) throws DbException,
             TransactionAbortedException {
         // some code goes here
-        return null;
+        ArrayList<Page> list = new ArrayList<>();
+        HeapPageId heapPageId = new HeapPageId(getId(), t.getRecordId().getPageId().getPageNumber());
+        HeapPage curPage = (HeapPage) Database.getBufferPool()
+                    .getPage(tid, heapPageId, Permissions.READ_WRITE);
+        curPage.deleteTuple(t);
+        curPage.markDirty(true, tid);
+        list.add(curPage);
+
+
+        return list;
         // not necessary for lab1
     }
 
@@ -167,15 +215,15 @@ public class HeapFile implements DbFile {
             // may not open
             if (it == null) return false;
             if (it.hasNext()) return true;
-            if (pageMaxNo > curPage.getId().getPageNumber()) {
+            //当前页没有，需要跳入下一页确认，由于这个过程可能要迭代多次，所以这里为while循环，直到找到符合条件的页后退出
+            while (pageMaxNo > curPage.getId().getPageNumber()) {
                 HeapPageId nextHeapPageId = new HeapPageId(f.getId(),
                         curPage.getId().getPageNumber() + 1);
-                // 跳到下一页 TODO 注意:如果这里不跳，不影响对应的case测试，但是会影响 SeqScan 的测试，且不太好调试
                 curPage = (HeapPage) Database.getBufferPool()
                         .getPage(tid, nextHeapPageId, Permissions.READ_ONLY);
 
                 it = curPage.iterator();
-                return it.hasNext();
+                if (it.hasNext()) return true;
             }
 
             return  false;
