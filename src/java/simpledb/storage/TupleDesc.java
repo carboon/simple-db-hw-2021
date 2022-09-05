@@ -243,9 +243,8 @@ public class TupleDesc implements Serializable {
             TDItem bitem = B.next();
             if (aitem.fieldType == bitem.fieldType) {
                 if (aitem.fieldName == null && bitem.fieldName == null)continue;
-                if (aitem.fieldName != null && bitem.fieldName == null)return false;
-                if (aitem.fieldName == null && bitem.fieldName !=null) return false;
-                if(!aitem.fieldName.equals(bitem.fieldName))return false;
+                if (bitem.fieldName == null || aitem.fieldName == null) return false;
+                if (!aitem.fieldName.equals(bitem.fieldName))return false;
             } else {
                 return false;
             }

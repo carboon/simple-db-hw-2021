@@ -217,8 +217,9 @@ public class HeapFile implements DbFile {
             if (it.hasNext()) return true;
             //当前页没有，需要跳入下一页确认，由于这个过程可能要迭代多次，所以这里为while循环，直到找到符合条件的页后退出
             while (pageMaxNo > curPage.getId().getPageNumber()) {
+                int curpageno = curPage.getId().getPageNumber();
                 HeapPageId nextHeapPageId = new HeapPageId(f.getId(),
-                        curPage.getId().getPageNumber() + 1);
+                        curpageno + 1);
                 curPage = (HeapPage) Database.getBufferPool()
                         .getPage(tid, nextHeapPageId, Permissions.READ_ONLY);
 

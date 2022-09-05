@@ -121,4 +121,38 @@ public class Tuple implements Serializable {
         // some code goes here
         this.tupleDesc = td;
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if(this == o){
+            return true;
+        }
+        if(o == null){
+            return false;
+        }
+
+        if(getClass() != o.getClass()){
+            return false;
+        }
+        Tuple oTuple = (Tuple)o;
+        if (!tupleDesc.equals(oTuple.tupleDesc)) {
+            return false;
+        }
+
+        if (!recordId.equals(oTuple.recordId)) {
+            return false;
+        }
+        Iterator<Field> it =  fields();
+        Iterator<Field> oit = oTuple.fields();
+        while (oit.hasNext() && it.hasNext()) {
+            Field field = it.next();
+            Field oField =oit.next();
+            if (field == null && oField == null)continue;
+            if (field == null || oField == null)return false;
+            if(!field.equals(oField)) return false;
+        }
+        return !it.hasNext() && !oit.hasNext();
+    }
+
+
 }

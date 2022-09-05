@@ -8,6 +8,8 @@ import java.io.*;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -37,7 +39,9 @@ public class BufferPool {
     public static final int DEFAULT_PAGES = 50;
 
     private int numPages;
+    private int maxPagesNum;
     private ConcurrentHashMap <PageId, Page> pageMap;
+    private LinkedBlockingQueue<PageId> queuePageIds;
     private ReadWriteLock rwlock;
 
 
@@ -48,9 +52,11 @@ public class BufferPool {
      */
     public BufferPool(int numPages) {
         // some code goes here
-        this.numPages = numPages;
+        this.maxPagesNum = numPages;
+        this.numPages = 0;
         pageMap = new ConcurrentHashMap<>();
         rwlock = new ReentrantReadWriteLock();
+        queuePageIds = new LinkedBlockingQueue<>();
     }
     
     public static int getPageSize() {
@@ -94,7 +100,9 @@ public class BufferPool {
             DbFile file = Database.getCatalog().getDatabaseFile(pid.getTableId());
             page = file.readPage(pid);
             this.pageMap.put(pid, page);
+            queuePageIds.add(pid);
         }
+
         rwlock.readLock().unlock();
         return page;
     }
@@ -161,9 +169,9 @@ public class BufferPool {
         throws DbException, IOException, TransactionAbortedException {
         // some code goes here
         // not necessary for lab1
-        PageId pageId =  t.getRecordId().getPageId();
-        DbFile dbFile = Database.getCatalog().getDatabaseFile(pageId.getTableId());
+        DbFile dbFile = Database.getCatalog().getDatabaseFile(tableId);//思考并注意这里用的不是t中的tableId
         dbFile.insertTuple(tid, t); //不确定这里是否要 markDirty
+
 
     }
 
@@ -187,7 +195,6 @@ public class BufferPool {
         PageId pageId =  t.getRecordId().getPageId();
         DbFile dbFile = Database.getCatalog().getDatabaseFile(pageId.getTableId());
         dbFile.deleteTuple(tid, t);
-
     }
 
     /**
@@ -198,6 +205,15 @@ public class BufferPool {
     public synchronized void flushAllPages() throws IOException {
         // some code goes here
         // not necessary for lab1
+        for(Map.Entry<PageId,Page> entry: pageMap.entrySet()) {
+            Page page = entry.getValue();
+            TransactionId tid = page.isDirty();
+            if(tid != null) {
+                DbFile dbFile = Database.getCatalog().getDatabaseFile(entry.getKey().getTableId());
+                dbFile.writePage(page);
+                page.markDirty(false,tid);
+            }
+        }
 
 
     }
@@ -213,6 +229,7 @@ public class BufferPool {
     public synchronized void discardPage(PageId pid) {
         // some code goes here
         // not necessary for lab1
+        pageMap.remove(pid);
     }
 
     /**
@@ -222,6 +239,13 @@ public class BufferPool {
     private synchronized  void flushPage(PageId pid) throws IOException {
         // some code goes here
         // not necessary for lab1
+        Page page = pageMap.get(pid);
+        TransactionId tid = page.isDirty();
+        if(tid != null) {
+            DbFile dbFile = Database.getCatalog().getDatabaseFile(pid.getTableId());
+            dbFile.writePage(page);
+            page.markDirty(false,tid);
+        }
     }
 
     /** Write all pages of the specified transaction to disk.
@@ -238,6 +262,9 @@ public class BufferPool {
     private synchronized  void evictPage() throws DbException {
         // some code goes here
         // not necessary for lab1
+        if (numPages <= 0)throw  new DbException("numpage <= 0");
+        PageId pageId =  queuePageIds.poll();
+        discardPage(pageId);
     }
 
 }
