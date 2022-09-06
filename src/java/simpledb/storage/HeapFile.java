@@ -161,8 +161,6 @@ public class HeapFile implements DbFile {
             newPage.markDirty(true, tid);
             list.add(newPage);
         }
-
-
         return list;
         // not necessary for lab1
     }
@@ -178,7 +176,6 @@ public class HeapFile implements DbFile {
         curPage.deleteTuple(t);
         curPage.markDirty(true, tid);
         list.add(curPage);
-
 
         return list;
         // not necessary for lab1

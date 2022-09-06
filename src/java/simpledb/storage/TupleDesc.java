@@ -5,6 +5,8 @@ import simpledb.common.Type;
 import java.io.Serializable;
 import java.util.*;
 
+import static simpledb.execution.Aggregator.NO_GROUPING;
+
 /**
  * TupleDesc describes the schema of a tuple.
  */
@@ -139,6 +141,9 @@ public class TupleDesc implements Serializable {
      */
     public Type getFieldType(int i) throws NoSuchElementException {
         // some code goes here
+        //这里特殊处理一下，针对 NO_GROUPING场景 TODO 待确认更好的做法
+        if(i == NO_GROUPING) return Type.STRING_TYPE;
+
         if (i < 0 || i >= TDItemList.size()) {
             throw new NoSuchElementException();
         }

@@ -6,9 +6,7 @@ import simpledb.transaction.TransactionId;
 
 import java.io.*;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -38,10 +36,9 @@ public class BufferPool {
     constructor instead. */
     public static final int DEFAULT_PAGES = 50;
 
-    private int numPages;
-    private int maxPagesNum;
-    private ConcurrentHashMap <PageId, Page> pageMap;
-    private LinkedBlockingQueue<PageId> queuePageIds;
+//    private ConcurrentHashMap <PageId, Page> pageMap;
+    private LinkedHashMap<PageId, Page> cache;
+    private int capacity;
     private ReadWriteLock rwlock;
 
 
@@ -52,11 +49,9 @@ public class BufferPool {
      */
     public BufferPool(int numPages) {
         // some code goes here
-        this.maxPagesNum = numPages;
-        this.numPages = 0;
-        pageMap = new ConcurrentHashMap<>();
+        cache = new LinkedHashMap<>();
+        capacity = numPages;
         rwlock = new ReentrantReadWriteLock();
-        queuePageIds = new LinkedBlockingQueue<>();
     }
     
     public static int getPageSize() {
@@ -92,19 +87,29 @@ public class BufferPool {
         throws TransactionAbortedException, DbException {
         // some code goes here
         rwlock.readLock().lock();
-        Page page = this.pageMap.get(pid);
+        Page page = cache.get(pid);
         if (page == null) {
-            if(this.numPages >= DEFAULT_PAGES) {
-                evictPage();
-            }
             DbFile file = Database.getCatalog().getDatabaseFile(pid.getTableId());
             page = file.readPage(pid);
-            this.pageMap.put(pid, page);
-            queuePageIds.add(pid);
         }
-
+        put(pid,page);
         rwlock.readLock().unlock();
         return page;
+    }
+
+    public void put(PageId pageId, Page page) throws DbException{
+        if (cache.containsKey(pageId)) {
+            makeRecently(pageId);//更新位置
+        }  else if (cache.size() >= capacity) {
+            evictPage();//释放最旧的page
+        }
+        cache.put(pageId, page);
+    }
+
+    private void makeRecently(PageId pageId) {
+        // 删除原来的节点，再重新加入
+        Page page = cache.remove(pageId);
+        cache.put(pageId, page);
     }
 
     /**
@@ -170,8 +175,10 @@ public class BufferPool {
         // some code goes here
         // not necessary for lab1
         DbFile dbFile = Database.getCatalog().getDatabaseFile(tableId);//思考并注意这里用的不是t中的tableId
-        dbFile.insertTuple(tid, t); //不确定这里是否要 markDirty
-
+        List<Page> dirtyPages =  dbFile.insertTuple(tid, t);
+        for(Page page: dirtyPages) {
+            put(page.getId(), page);
+        }
 
     }
 
@@ -194,7 +201,10 @@ public class BufferPool {
         // not necessary for lab1
         PageId pageId =  t.getRecordId().getPageId();
         DbFile dbFile = Database.getCatalog().getDatabaseFile(pageId.getTableId());
-        dbFile.deleteTuple(tid, t);
+        List<Page> dirtyPages = dbFile.deleteTuple(tid, t);
+        for(Page page: dirtyPages) {
+            put(page.getId(), page);
+        }
     }
 
     /**
@@ -205,7 +215,7 @@ public class BufferPool {
     public synchronized void flushAllPages() throws IOException {
         // some code goes here
         // not necessary for lab1
-        for(Map.Entry<PageId,Page> entry: pageMap.entrySet()) {
+        for(Map.Entry<PageId,Page> entry: cache.entrySet()) {
             Page page = entry.getValue();
             TransactionId tid = page.isDirty();
             if(tid != null) {
@@ -214,8 +224,6 @@ public class BufferPool {
                 page.markDirty(false,tid);
             }
         }
-
-
     }
 
     /** Remove the specific page id from the buffer pool.
@@ -229,7 +237,7 @@ public class BufferPool {
     public synchronized void discardPage(PageId pid) {
         // some code goes here
         // not necessary for lab1
-        pageMap.remove(pid);
+        cache.remove(pid);
     }
 
     /**
@@ -239,7 +247,7 @@ public class BufferPool {
     private synchronized  void flushPage(PageId pid) throws IOException {
         // some code goes here
         // not necessary for lab1
-        Page page = pageMap.get(pid);
+        Page page = cache.get(pid);
         TransactionId tid = page.isDirty();
         if(tid != null) {
             DbFile dbFile = Database.getCatalog().getDatabaseFile(pid.getTableId());
@@ -262,9 +270,14 @@ public class BufferPool {
     private synchronized  void evictPage() throws DbException {
         // some code goes here
         // not necessary for lab1
-        if (numPages <= 0)throw  new DbException("numpage <= 0");
-        PageId pageId =  queuePageIds.poll();
-        discardPage(pageId);
+        PageId pageOldest = cache.keySet().iterator().next();
+        try {
+            flushPage(pageOldest);
+        } catch (IOException e) {
+            throw new DbException(" flush page error");
+        }//不确定是不是这样 TODO
+
+        cache.remove(pageOldest);
     }
 
 }
