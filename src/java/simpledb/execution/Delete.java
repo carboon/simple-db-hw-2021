@@ -21,6 +21,7 @@ public class Delete extends Operator {
     private static final long serialVersionUID = 1L;
     private TransactionId transactionId;
     private OpIterator child;
+    private boolean called;
     /**
      * Constructor specifying the transaction that this delete belongs to as
      * well as the child to read from.
@@ -69,8 +70,8 @@ public class Delete extends Operator {
      * @see BufferPool#deleteTuple
      */
     protected Tuple fetchNext() throws TransactionAbortedException, DbException {
-        // some code goes here
         int count = 0;
+        if(called) return null;
         while (child.hasNext()) {
             Tuple tuple = child.next();
             try {
@@ -82,6 +83,7 @@ public class Delete extends Operator {
         }
         Tuple res = new Tuple(getTupleDesc());
         res.setField(0, new IntField(count));
+        called = true;
         return res;
     }
 
