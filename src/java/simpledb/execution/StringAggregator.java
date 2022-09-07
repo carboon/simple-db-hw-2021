@@ -17,7 +17,7 @@ public class StringAggregator implements Aggregator {
     private String NOGROUPING = "NO_GROUPING";
     private GBHandler gbHandler;
     private int gbfield;
-    private int afield;
+//    private int afield;
     private Type gbfieldtype;
     private Op what;
     /**
@@ -30,7 +30,7 @@ public class StringAggregator implements Aggregator {
      */
 
     public StringAggregator(int gbfield, Type gbfieldtype, int afield, Op what) {
-        // some code goes here
+        // 这里 的 afield 感觉没啥用，因为我们只 提供 count计算 我把 afield 从 构造函数中 删除掉。这样如果后面出问题容易发现
         if (what != Op.COUNT) {
             throw new IllegalArgumentException();
         }
@@ -39,10 +39,11 @@ public class StringAggregator implements Aggregator {
         this.gbfieldtype = gbfieldtype;
         this.what = what;
 
+
     }
     private abstract class GBHandler{
         ConcurrentHashMap<String,Integer> gbResult;
-        abstract void handle(String key, Field field);
+        abstract void handle(String key);
         private GBHandler(){
             gbResult = new ConcurrentHashMap<>();
         }
@@ -52,7 +53,7 @@ public class StringAggregator implements Aggregator {
     }
     private  class  CountAggregator extends GBHandler {
         @Override
-        void handle(String key, Field field) {
+        void handle(String key) {
             if (gbResult.containsKey(key)){
                 gbResult.put(key, gbResult.get(key) + 1);
             } else {
@@ -75,7 +76,7 @@ public class StringAggregator implements Aggregator {
             key = tup.getField(gbfield).toString();
         }
 
-        gbHandler.handle(key, tup.getField(afield));
+        gbHandler.handle(key);
     }
 
     /**
