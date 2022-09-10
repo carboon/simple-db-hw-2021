@@ -2,9 +2,18 @@ package simpledb.optimizer;
 
 import simpledb.execution.Predicate;
 
+import static simpledb.execution.Predicate.Op.*;
+
 /** A class to represent a fixed-width histogram over a single integer-based field.
  */
 public class IntHistogram {
+
+    private int buckets;
+    private int min;
+    private int max;
+    private double [] bucketArray;
+    private double gap;
+    private int count;
 
     /**
      * Create a new IntHistogram.
@@ -24,6 +33,11 @@ public class IntHistogram {
      */
     public IntHistogram(int buckets, int min, int max) {
     	// some code goes here
+        this.min = min;
+        this.max = max;
+        this.buckets = buckets;
+        this.bucketArray = new double[buckets];
+        this.gap = (max + 1 - min)* 1.0/buckets;
     }
 
     /**
@@ -31,7 +45,9 @@ public class IntHistogram {
      * @param v Value to add to the histogram
      */
     public void addValue(int v) {
-    	// some code goes here
+        if(v >max || v < min)return;
+    	bucketArray[(int)((v - min)*1.0/gap)]++;
+        count++;
     }
 
     /**
@@ -45,9 +61,53 @@ public class IntHistogram {
      * @return Predicted selectivity of this particular operator and value
      */
     public double estimateSelectivity(Predicate.Op op, int v) {
-
     	// some code goes here
-        return -1.0;
+//        int index = (v - min)/gap;
+        double res = 0.0;
+        switch (op) {
+            case GREATER_THAN: {
+                if(v > max) return 0.0;
+                if(v < min) return 1.0;
+                int index = (int) (((v - min)*1.0)/gap);
+                double sum = 0;
+                for (int i = index+1; i < buckets; i++) {
+                    sum += bucketArray[i];
+                }
+                double estimate_0 = bucketArray[index] * ((double)(index+1)*gap - v)/gap ;
+                res = (estimate_0 + sum);
+                break;
+            }
+            case EQUALS: {
+                if (v > max || v < min) return 0.0;
+                int index = (int)((v - min)*1.0/gap);
+                double estimate = bucketArray[index] / gap ;
+                res = estimate;
+                break;
+            }
+            case LESS_THAN: {
+                if(v > max) return 1.0;
+                if(v < min) return 0.0;
+                int index = (int) (((v - min)*1.0)/gap);
+                double sum = 0;
+                for (int i = 0; i < index; i++) {
+                    sum += bucketArray[i];
+                }
+                double estimate_0 = bucketArray[index] * ((v - index*gap )/gap);
+                res = (estimate_0 + sum);
+                break;
+            }
+            case LESS_THAN_OR_EQ: {
+                return estimateSelectivity(LESS_THAN,v) + estimateSelectivity(EQUALS,v);
+            }
+            case GREATER_THAN_OR_EQ: {
+                return estimateSelectivity(GREATER_THAN,v) + estimateSelectivity(EQUALS,v);
+            }
+
+            case NOT_EQUALS: {
+                return  1.0 - estimateSelectivity(EQUALS,v);
+            }
+        }
+        return res/count;
     }
     
     /**
