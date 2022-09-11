@@ -37,7 +37,7 @@ public class IntHistogram {
         this.max = max;
         this.buckets = buckets;
         this.bucketArray = new double[buckets];
-        this.gap = (max + 1 - min)* 1.0/buckets;
+        this.gap = (max + 1.0 - min)/buckets;
     }
 
     /**
@@ -66,41 +66,37 @@ public class IntHistogram {
         double res = 0.0;
         switch (op) {
             case GREATER_THAN: {
-                if(v > max) return 0.0;
-                if(v < min) return 1.0;
+                if(v >= max) return 0.0;
+                if(v <= min) return 1.0;
                 int index = (int) (((v - min)*1.0)/gap);
                 double sum = 0;
                 for (int i = index+1; i < buckets; i++) {
                     sum += bucketArray[i];
                 }
-                double estimate_0 = bucketArray[index] * ((double)(index+1)*gap - v)/gap ;
+                double estimate_0 = bucketArray[index] * ((double)( min + (index+1)*gap - v)/gap) ;
                 res = (estimate_0 + sum);
                 break;
             }
             case EQUALS: {
-                if (v > max || v < min) return 0.0;
-                int index = (int)((v - min)*1.0/gap);
-                double estimate = bucketArray[index] / gap ;
-                res = estimate;
-                break;
+                return estimateSelectivity(GREATER_THAN,v) - estimateSelectivity(GREATER_THAN,v+1);
             }
             case LESS_THAN: {
-                if(v > max) return 1.0;
-                if(v < min) return 0.0;
+                if(v >= max) return 1.0;
+                if(v <= min) return 0.0;
                 int index = (int) (((v - min)*1.0)/gap);
                 double sum = 0;
                 for (int i = 0; i < index; i++) {
                     sum += bucketArray[i];
                 }
-                double estimate_0 = bucketArray[index] * ((v - index*gap )/gap);
+                double estimate_0 = bucketArray[index] * ((v - min - index*gap )/gap);
                 res = (estimate_0 + sum);
                 break;
             }
             case LESS_THAN_OR_EQ: {
-                return estimateSelectivity(LESS_THAN,v) + estimateSelectivity(EQUALS,v);
+                return estimateSelectivity(LESS_THAN,v+1);
             }
             case GREATER_THAN_OR_EQ: {
-                return estimateSelectivity(GREATER_THAN,v) + estimateSelectivity(EQUALS,v);
+                return estimateSelectivity(GREATER_THAN,v-1) ;
             }
 
             case NOT_EQUALS: {
@@ -121,7 +117,11 @@ public class IntHistogram {
     public double avgSelectivity()
     {
         // some code goes here
-        return 1.0;
+        double cnt = 0;
+        for (double bucket: bucketArray) {
+            cnt += bucket;
+        }
+        return cnt / count;
     }
     
     /**
